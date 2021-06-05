@@ -1,6 +1,6 @@
 import random
 from collections import deque, namedtuple
-from typing import Tuple
+from typing import Tuple, Optional
 
 import torch
 import numpy as np
@@ -16,7 +16,13 @@ class ReplayBuffer:
     Fixed-size buffer to store experience tuples.
     """
 
-    def __init__(self, action_size: int, buffer_size: int, batch_size: int, seed: int):
+    def __init__(
+        self,
+        action_size: int,
+        buffer_size: int,
+        batch_size: int,
+        seed: Optional[int] = None,
+    ):
         """
         Creates a ReplayBuffer instance.
 
@@ -32,7 +38,8 @@ class ReplayBuffer:
             "Experience",
             field_names=["state", "action", "reward", "next_state", "done"],
         )
-        random.seed(seed)
+        if seed is not None:
+            random.seed(seed)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     def add(

@@ -17,7 +17,10 @@ class UnityEnvWrapper:
         self.env = unity_env
         self.brain_name = self.env.brain_names[0]
         self.brain = self.env.brains[self.brain_name]
-        self.env_info = None
+
+        self.env_info = self.env.reset(train_mode=True)[self.brain_name]
+        self.action_size = self.brain.vector_action_space_size
+        self.state_size = len(self.env_info.vector_observations[0])
 
     def reset(self, train_mode: bool = True) -> np.ndarray:
         """

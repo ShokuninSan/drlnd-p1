@@ -1,7 +1,7 @@
 import numpy as np
 import random
 from collections import deque
-from typing import List
+from typing import List, Optional
 
 import torch
 import torch.optim as optim
@@ -19,19 +19,21 @@ class DQNAgent:
         self,
         state_size: int,
         action_size: int,
+        hidden_layer_dimensions: List[int] = [512, 256],
         buffer_size: int = 100_000,
         batch_size: int = 64,
         gamma: float = 0.99,
         tau: float = 1e-3,
         lr: float = 5e-4,
         update_every: int = 4,
-        seed: int = 0,
+        seed: Optional[int] = None,
     ):
         """
         Creates a DQNAgent instance.
 
         :param state_size: size of state space.
         :param action_size: size of action space.
+        :param hidden_layer_dimensions: dimensions of Q-network layer dims.
         :param buffer_size: replay buffer size.
         :param batch_size: mini-batch size.
         :param gamma: discount factor.
@@ -48,13 +50,23 @@ class DQNAgent:
         self.tau = tau
         self.lr = lr
         self.update_every = update_every
-        random.seed(seed)
+        self.seed = seed
+        if self.seed is not None:
+            random.seed(self.seed)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-        self.qnetwork_local = QNetwork(state_size, action_size, seed).to(self.device)
-        self.qnetwork_target = QNetwork(state_size, action_size, seed).to(self.device)
+        self.qnetwork_local = QNetwork(
+            [self.state_size, *hidden_layer_dimensions, self.action_size],
+            seed=self.seed,
+        ).to(self.device)
+        self.qnetwork_target = QNetwork(
+            [self.state_size, *hidden_layer_dimensions, self.action_size],
+            seed=self.seed,
+        ).to(self.device)
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=self.lr)
-        self.memory = ReplayBuffer(action_size, self.buffer_size, self.batch_size, seed)
+        self.memory = ReplayBuffer(
+            self.action_size, self.buffer_size, self.batch_size, self.seed
+        )
 
         # Initialize time step (for updating every self.update_every steps)
         self.t_step = 0
@@ -204,12 +216,17 @@ class DQNAgent:
                 break
         return scores
 
-    def load_model(self, model_checkpoint_path: str) -> "DQNAgent":
+    @staticmethod
+    def load(model_checkpoint_path: str) -> "DQNAgent":
         """
-        Loads stored weights into the local model.
+        Creates an agent and loads stored weights into the local model.
 
         :param model_checkpoint_path: path to load model weights from.
-        :return: DQNAgent instance.
+        :return: a new DQNAgent instance.
         """
-        self.qnetwork_local.load_state_dict(torch.load(model_checkpoint_path))
-        return self
+        state_dict = torch.load(model_checkpoint_path)
+        state_size = list(state_dict.values())[0].shape[1]
+        action_size = list(state_dict.values())[-1].shape[0]
+        agent = DQNAgent(state_size=state_size, action_size=action_size)
+        agent.qnetwork_local.load_state_dict(state_dict)
+        return agent
