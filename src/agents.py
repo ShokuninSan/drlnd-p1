@@ -1,17 +1,19 @@
 import numpy as np
 import random
 from collections import deque
-from typing import Tuple, List
+from typing import List
 
 import torch
 import torch.optim as optim
 
 from models import QNetwork
-from experiences import ReplayBuffer
+from experiences import ReplayBuffer, ExperienceBatch
 
 
 class DQNAgent:
-    """Interacts with and learns from the environment."""
+    """
+    Interacts with and learns from the environment.
+    """
 
     def __init__(
         self,
@@ -49,13 +51,11 @@ class DQNAgent:
         random.seed(seed)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-        # Q-Network
         self.qnetwork_local = QNetwork(state_size, action_size, seed).to(self.device)
         self.qnetwork_target = QNetwork(state_size, action_size, seed).to(self.device)
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=self.lr)
-
-        # Replay memory
         self.memory = ReplayBuffer(action_size, self.buffer_size, self.batch_size, seed)
+
         # Initialize time step (for updating every self.update_every steps)
         self.t_step = 0
 
@@ -79,7 +79,7 @@ class DQNAgent:
         # Save experience in replay memory
         self.memory.add(state, action, reward, next_state, done)
 
-        # Learn every UPDATE_EVERY time steps.
+        # Learn every self.update_every time steps.
         self.t_step = (self.t_step + 1) % self.update_every
         if self.t_step == 0:
             # If enough samples are available in memory, get random subset and learn
@@ -105,7 +105,10 @@ class DQNAgent:
         else:
             return random.choice(np.arange(self.action_size))
 
-    def _fit(self, experiences: Tuple[torch.Tensor]) -> None:
+    def _fit(
+        self,
+        experiences: ExperienceBatch,
+    ) -> None:
         """
         Updates value parameters using given batch of experience tuples.
 

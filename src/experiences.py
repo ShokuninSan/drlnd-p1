@@ -6,6 +6,11 @@ import torch
 import numpy as np
 
 
+ExperienceBatch = Tuple[
+    torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor
+]
+
+
 class ReplayBuffer:
     """
     Fixed-size buffer to store experience tuples.
@@ -52,7 +57,7 @@ class ReplayBuffer:
 
     def sample(
         self,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> ExperienceBatch:
         """
         Randomly sample a batch of experiences from memory.
 
