@@ -1,22 +1,24 @@
 import random
 from collections import deque, namedtuple
+from typing import Tuple
 
 import torch
 import numpy as np
 
 
 class ReplayBuffer:
-    """Fixed-size buffer to store experience tuples."""
+    """
+    Fixed-size buffer to store experience tuples.
+    """
 
-    def __init__(self, action_size, buffer_size, batch_size, seed):
-        """Initialize a ReplayBuffer object.
+    def __init__(self, action_size: int, buffer_size: int, batch_size: int, seed: int):
+        """
+        Creates a ReplayBuffer instance.
 
-        Params
-        ======
-            action_size (int): dimension of each action
-            buffer_size (int): maximum size of buffer
-            batch_size (int): size of each training batch
-            seed (int): random seed
+        :param action_size: dimension of each action.
+        :param buffer_size: maximum size of buffer.
+        :param batch_size: size of each training batch.
+        :param seed: random seed.
         """
         self.action_size = action_size
         self.memory = deque(maxlen=buffer_size)
@@ -25,16 +27,37 @@ class ReplayBuffer:
             "Experience",
             field_names=["state", "action", "reward", "next_state", "done"],
         )
-        self.seed = random.seed(seed)
+        random.seed(seed)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    def add(self, state, action, reward, next_state, done):
-        """Add a new experience to memory."""
+    def add(
+        self,
+        state: np.ndarray,
+        action: int,
+        reward: float,
+        next_state: np.ndarray,
+        done: bool,
+    ) -> None:
+        """
+        Adds new experience to the internal memory.
+
+        :param state: current state of the environment.
+        :param action: action taken.
+        :param reward: reward received for given action.
+        :param next_state: next state after taken the given action.
+        :param done: indicates if episode has finished.
+        """
         e = self.experience(state, action, reward, next_state, done)
         self.memory.append(e)
 
-    def sample(self):
-        """Randomly sample a batch of experiences from memory."""
+    def sample(
+        self,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Randomly sample a batch of experiences from memory.
+
+        :return: batch of experiences.
+        """
         experiences = random.sample(self.memory, k=self.batch_size)
 
         states = (
@@ -73,8 +96,12 @@ class ReplayBuffer:
             .to(self.device)
         )
 
-        return (states, actions, rewards, next_states, dones)
+        return states, actions, rewards, next_states, dones
 
-    def __len__(self):
-        """Return the current size of internal memory."""
+    def __len__(self) -> int:
+        """
+        Return the current size of internal memory.
+
+        :return: size of internal memory.
+        """
         return len(self.memory)

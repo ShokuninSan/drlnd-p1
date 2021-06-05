@@ -1,150 +1,175 @@
 import numpy as np
 import random
 from collections import deque
+from typing import Tuple, List
 
 import torch
-import torch.nn.functional as F
 import torch.optim as optim
 
 from models import QNetwork
 from experiences import ReplayBuffer
 
 
-BUFFER_SIZE = int(1e5)  # replay buffer size
-BATCH_SIZE = 64  # minibatch size
-GAMMA = 0.99  # discount factor
-TAU = 1e-3  # for soft update of target parameters
-LR = 5e-4  # learning rate
-UPDATE_EVERY = 4  # how often to update the network
-
-
 class DQNAgent:
     """Interacts with and learns from the environment."""
 
-    def __init__(self, state_size, action_size, seed=0):
-        """Initialize an Agent object.
+    def __init__(
+        self,
+        state_size: int,
+        action_size: int,
+        buffer_size: int = 100_000,
+        batch_size: int = 64,
+        gamma: float = 0.99,
+        tau: float = 1e-3,
+        lr: float = 5e-4,
+        update_every: int = 4,
+        seed: int = 0,
+    ):
+        """
+        Creates a DQNAgent instance.
 
-        Params
-        ======
-            state_size (int): dimension of each state
-            action_size (int): dimension of each action
-            seed (int): random seed
+        :param state_size: size of state space.
+        :param action_size: size of action space.
+        :param buffer_size: replay buffer size.
+        :param batch_size: mini-batch size.
+        :param gamma: discount factor.
+        :param tau: interpolation parameter for soft-update.
+        :param lr: learning rate.
+        :param update_every: how often to update the network.
+        :param seed: random seed.
         """
         self.state_size = state_size
         self.action_size = action_size
-        self.seed = random.seed(seed)
+        self.buffer_size = buffer_size
+        self.batch_size = batch_size
+        self.gamma = gamma
+        self.tau = tau
+        self.lr = lr
+        self.update_every = update_every
+        random.seed(seed)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         # Q-Network
         self.qnetwork_local = QNetwork(state_size, action_size, seed).to(self.device)
         self.qnetwork_target = QNetwork(state_size, action_size, seed).to(self.device)
-        self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=LR)
+        self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=self.lr)
 
         # Replay memory
-        self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, seed)
-        # Initialize time step (for updating every UPDATE_EVERY steps)
+        self.memory = ReplayBuffer(action_size, self.buffer_size, self.batch_size, seed)
+        # Initialize time step (for updating every self.update_every steps)
         self.t_step = 0
 
-    def _step(self, state, action, reward, next_state, done):
+    def _step(
+        self,
+        state: np.ndarray,
+        action: int,
+        reward: float,
+        next_state: np.ndarray,
+        done: bool,
+    ) -> None:
+        """
+        Adds the experience to memory and fits the agent.
+
+        :param state: state of the environment.
+        :param action: action taken.
+        :param reward: reward received.
+        :param next_state: next state after taken action.
+        :param done: indicated if the episode has finished.
+        """
         # Save experience in replay memory
         self.memory.add(state, action, reward, next_state, done)
 
         # Learn every UPDATE_EVERY time steps.
-        self.t_step = (self.t_step + 1) % UPDATE_EVERY
+        self.t_step = (self.t_step + 1) % self.update_every
         if self.t_step == 0:
             # If enough samples are available in memory, get random subset and learn
-            if len(self.memory) > BATCH_SIZE:
+            if len(self.memory) > self.batch_size:
                 experiences = self.memory.sample()
-                self._fit(experiences, GAMMA)
+                self._fit(experiences)
 
-    def act(self, state, eps=0.0):
-        """Returns actions for given state as per current policy.
-
-        Params
-        ======
-            state (array_like): current state
-            eps (float): epsilon, for epsilon-greedy action selection
+    def act(self, state: np.ndarray, eps: float = 0.0) -> int:
         """
-        state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
-        self.qnetwork_local.eval()
-        with torch.no_grad():
-            action_values = self.qnetwork_local(state)
-        self.qnetwork_local.train()
+        Returns actions for given state as per current policy.
 
-        # Epsilon-greedy action selection
+        :param state: current state.
+        :param eps: epsilon, for epsilon-greedy action selection.
+        :return: selected action.
+        """
         if random.random() > eps:
+            state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
+            self.qnetwork_local.eval()
+            with torch.no_grad():
+                action_values = self.qnetwork_local(state)
+            self.qnetwork_local.train()
             return np.argmax(action_values.cpu().data.numpy())
         else:
             return random.choice(np.arange(self.action_size))
 
-    def _fit(self, experiences, gamma):
-        """Update value parameters using given batch of experience tuples.
+    def _fit(self, experiences: Tuple[torch.Tensor]) -> None:
+        """
+        Updates value parameters using given batch of experience tuples.
 
-        Params
-        ======
-            experiences (Tuple[torch.Variable]): tuple of (s, a, r, s', done) tuples
-            gamma (float): discount factor
+        :param experiences: tuple of (s, a, r, s', done) tuples.
         """
         states, actions, rewards, next_states, dones = experiences
 
-        ## TODO: compute and minimize the loss
-        "*** YOUR CODE HERE ***"
         next_max_q = self.qnetwork_target(next_states).detach().max(1)[0].unsqueeze(1)
         next_max_q *= 1 - dones
-        target_q = rewards + gamma * next_max_q
-
+        target_q = rewards + self.gamma * next_max_q
         local_q = self.qnetwork_local(states).gather(1, actions)
-
         loss = (target_q - local_q).pow(2).mul(0.5).mean()
 
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
-        # ------------------- update target network ------------------- #
-        self._soft_update(self.qnetwork_local, self.qnetwork_target, TAU)
+        self._soft_update(self.qnetwork_local, self.qnetwork_target)
 
-    def _soft_update(self, local_model, target_model, tau):
-        """Soft update model parameters.
+    def _soft_update(self, local_model, target_model) -> None:
+        """
+        Soft-updates model parameters of target network.
+
         θ_target = τ*θ_local + (1 - τ)*θ_target
 
-        Params
-        ======
-            local_model (PyTorch model): weights will be copied from
-            target_model (PyTorch model): weights will be copied to
-            tau (float): interpolation parameter
+        :param local_model: weights will be copied from.
+        :param target_model: weights will be copied to.
         """
         for target_param, local_param in zip(
             target_model.parameters(), local_model.parameters()
         ):
             target_param.data.copy_(
-                tau * local_param.data + (1.0 - tau) * target_param.data
+                self.tau * local_param.data + (1.0 - self.tau) * target_param.data
             )
 
     def learn(
         self,
         environment,
-        n_episodes=2000,
-        max_t=1000,
-        eps_start=1.0,
-        eps_end=0.01,
-        eps_decay=0.995,
-        model_checkpoint_path="checkpoint.pth",
-    ):
+        n_episodes: int = 2000,
+        max_t: int = 1000,
+        eps_start: float = 1.0,
+        eps_end: float = 0.01,
+        eps_decay: float = 0.995,
+        scores_window_length: int = 100,
+        average_target_score: float = 13.0,
+        model_checkpoint_path: str = "checkpoint.pth",
+    ) -> List[float]:
         """
-        Learn the agent.
+        Learns the agent.
 
-        Params
-        ======
-            n_episodes (int): maximum number of training episodes
-            max_t (int): maximum number of timesteps per episode
-            eps_start (float): starting value of epsilon, for epsilon-greedy action selection
-            eps_end (float): minimum value of epsilon
-            eps_decay (float): multiplicative factor (per episode) for decreasing epsilon
+        :param environment: environment instance to interact with.
+        :param n_episodes: maximum number of training episodes.
+        :param max_t:  maximum number of time steps per episode.
+        :param eps_start: starting value of epsilon, for epsilon-greedy action selection.
+        :param eps_end: minimum value of epsilon.
+        :param eps_decay: multiplicative factor (per episode) for decreasing epsilon.
+        :param scores_window_length: length of scores window to monitor convergence.
+        :param average_target_score: average target score for scores_window_length at which learning stops.
+        :param model_checkpoint_path: path to store model weights to.
+        :return: list of scores.
         """
-        scores = []  # list containing scores from each episode
-        scores_window = deque(maxlen=100)  # last 100 scores
-        eps = eps_start  # initialize epsilon
+        scores = []
+        scores_window = deque(maxlen=scores_window_length)
+        eps = eps_start
         for i_episode in range(1, n_episodes + 1):
             state = environment.reset(train_mode=True)
             score = 0
@@ -156,31 +181,32 @@ class DQNAgent:
                 score += reward
                 if done:
                     break
-            scores_window.append(score)  # save most recent score
-            scores.append(score)  # save most recent score
-            eps = max(eps_end, eps_decay * eps)  # decrease epsilon
+            scores_window.append(score)
+            scores.append(score)
+            eps = max(eps_end, eps_decay * eps)
             print(
-                "\rEpisode {}\tAverage Score: {:.2f}".format(
-                    i_episode, np.mean(scores_window)
-                ),
+                f"\rEpisode {i_episode}\tAverage Score: {np.mean(scores_window):.2f}",
                 end="",
             )
-            if i_episode % 100 == 0:
+            if i_episode % scores_window_length == 0:
                 print(
-                    "\rEpisode {}\tAverage Score: {:.2f}".format(
-                        i_episode, np.mean(scores_window)
-                    )
+                    f"\rEpisode {i_episode}\tAverage Score: {np.mean(scores_window):.2f}"
                 )
-            if np.mean(scores_window) >= 13.0:
+            if np.mean(scores_window) >= average_target_score:
                 print(
-                    "\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}".format(
-                        i_episode - 100, np.mean(scores_window)
-                    )
+                    f"\nEnvironment solved in {i_episode - scores_window_length:d} episodes!\t"
+                    f"Average Score: {np.mean(scores_window):.2f}"
                 )
                 torch.save(self.qnetwork_local.state_dict(), model_checkpoint_path)
                 break
         return scores
 
-    def load_model(self, model_checkpoint_path):
+    def load_model(self, model_checkpoint_path: str) -> "DQNAgent":
+        """
+        Loads stored weights into the local model.
+
+        :param model_checkpoint_path: path to load model weights from.
+        :return: DQNAgent instance.
+        """
         self.qnetwork_local.load_state_dict(torch.load(model_checkpoint_path))
         return self
