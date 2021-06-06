@@ -5,6 +5,7 @@ from typing import List, Optional
 
 import torch
 import torch.optim as optim
+from torch.nn import SmoothL1Loss
 
 from models import QNetwork
 from experiences import ReplayBuffer, ExperienceBatch
@@ -64,6 +65,7 @@ class Agent:
             seed=self.seed,
         ).to(self.device)
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=self.lr)
+        self.loss_fn = SmoothL1Loss()
         self.memory = ReplayBuffer(
             self.action_size, self.buffer_size, self.batch_size, self.seed
         )
@@ -138,7 +140,7 @@ class Agent:
         next_max_q *= 1 - dones
         target_q = rewards + self.gamma * next_max_q
         local_q = self.qnetwork_local(states).gather(1, actions)
-        loss = (target_q - local_q).pow(2).mul(0.5).mean()
+        loss = self.loss_fn(local_q, target_q)
 
         self.optimizer.zero_grad()
         loss.backward()
