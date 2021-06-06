@@ -4,13 +4,37 @@
 
 # Project 1: Navigation
 
-### Project Details
-
-For this project, you will train an agent to navigate (and collect bananas!) in a large, square world.  
+In this project we train an agent to navigate (and collect bananas!) in a large, square world.  
 
 ![Trained Agent][image1]
 
-A reward of +1 is provided for collecting a yellow banana, and a reward of -1 is provided for collecting a blue banana.  Thus, the goal of your agent is to collect as many yellow bananas as possible while avoiding blue bananas.  
+### Project Layout
+
+The following project tree shows where to find code, documentation, etc.
+
+```
+.
+├── README.md ... this README
+├── environments
+│   └── ... your Unity environment goes here
+├── models
+│   └── drlnd_p1_model.pth ... the serialized (trained) model weights
+├── notebooks
+│   ├── Navigation.ipynb ... the entry point where you can train and/or test the agent
+│   ├── Report.ipynb ... the project report
+│   └── scores.png ... saved plot (shows average rewards of episodes)
+├── python
+│   └── ... contains and defines project depedencies (mostly borrowed from https://github.com/udacity/deep-reinforcement-learning/tree/master/p1_navigation)
+├── src
+│   ├── agents.py ... contains the DoubleDDQN agent implementation
+│   ├── environments.py ... contains wrapper for the Unity env
+│   ├── experiences.py ... contains replay buffers
+│   └── models.py ... contains neural network implementations
+```
+
+### Project Details
+
+A reward of +1 is provided for collecting a yellow banana, and a reward of -1 is provided for collecting a blue banana.  Thus, the goal of the agent is to collect as many yellow bananas as possible while avoiding blue bananas.  
 
 The state space has 37 dimensions and contains the agent's velocity, along with ray-based perception of objects around agent's forward direction.  Given this information, the agent has to learn how to best select actions.  Four discrete actions are available, corresponding to:
 - **`0`** - move forward.
@@ -44,6 +68,6 @@ The task is episodic, and in order to solve the environment, your agent must get
 
 ### Instructions
 
-Follow the instructions in `Navigation.ipynb` to either
-* get started with training your own agent or 
-* load the model weights and watch the trained agent
+Follow the instructions in `notebooks/Navigation.ipynb` to either
+* train your own agent or
+* load the model weights and watch the pre-trained agent
