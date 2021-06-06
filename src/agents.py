@@ -10,7 +10,7 @@ from models import QNetwork
 from experiences import ReplayBuffer, ExperienceBatch
 
 
-class DQNAgent:
+class Agent:
     """
     Interacts with and learns from the environment.
     """
@@ -29,7 +29,7 @@ class DQNAgent:
         seed: Optional[int] = None,
     ):
         """
-        Creates a DQNAgent instance.
+        Creates a Agent instance.
 
         :param state_size: size of state space.
         :param action_size: size of action space.
@@ -127,8 +127,14 @@ class DQNAgent:
         :param experiences: tuple of (s, a, r, s', done) tuples.
         """
         states, actions, rewards, next_states, dones = experiences
+        batch_size = len(dones)
 
-        next_max_q = self.qnetwork_target(next_states).detach().max(1)[0].unsqueeze(1)
+        # get argmax (action) of online model
+        next_argmax_q = self.qnetwork_local(next_states).max(1)[1]
+        # get action values from target network
+        next_q = self.qnetwork_target(next_states).detach()
+        next_max_q = next_q[np.arange(batch_size), next_argmax_q].unsqueeze(1)
+
         next_max_q *= 1 - dones
         target_q = rewards + self.gamma * next_max_q
         local_q = self.qnetwork_local(states).gather(1, actions)
@@ -209,7 +215,7 @@ class DQNAgent:
                 )
             if np.mean(scores_window) >= average_target_score:
                 print(
-                    f"\nEnvironment solved in {i_episode - scores_window_length:d} episodes!\t"
+                    f"\nEnvironment solved in {i_episode:d} episodes!\t"
                     f"Average Score: {np.mean(scores_window):.2f}"
                 )
                 torch.save(self.qnetwork_local.state_dict(), model_checkpoint_path)
@@ -217,7 +223,7 @@ class DQNAgent:
         return scores
 
     @staticmethod
-    def load(model_checkpoint_path: str) -> "DQNAgent":
+    def load(model_checkpoint_path: str) -> "Agent":
         """
         Creates an agent and loads stored weights into the local model.
 
@@ -227,6 +233,6 @@ class DQNAgent:
         state_dict = torch.load(model_checkpoint_path)
         state_size = list(state_dict.values())[0].shape[1]
         action_size = list(state_dict.values())[-1].shape[0]
-        agent = DQNAgent(state_size=state_size, action_size=action_size)
+        agent = Agent(state_size=state_size, action_size=action_size)
         agent.qnetwork_local.load_state_dict(state_dict)
         return agent
