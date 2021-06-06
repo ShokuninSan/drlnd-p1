@@ -1,26 +1,26 @@
 import numpy as np
 import random
 from collections import deque
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import torch
 import torch.optim as optim
 from torch.nn import SmoothL1Loss
 
-from models import QNetwork
+from models import DuelingDenseQNetwork
 from experiences import ReplayBuffer, ExperienceBatch
 
 
-class Agent:
+class DuelingDDQN:
     """
-    Interacts with and learns from the environment.
+    A dueling double-DQN agent.
     """
 
     def __init__(
         self,
         state_size: int,
         action_size: int,
-        hidden_layer_dimensions: List[int] = [512, 256],
+        hidden_layer_dimensions: Tuple[int] = (512, 256),
         buffer_size: int = 100_000,
         batch_size: int = 64,
         gamma: float = 0.99,
@@ -30,7 +30,7 @@ class Agent:
         seed: Optional[int] = None,
     ):
         """
-        Creates a Agent instance.
+        Creates an instance of DuelingDDQN.
 
         :param state_size: size of state space.
         :param action_size: size of action space.
@@ -38,7 +38,7 @@ class Agent:
         :param buffer_size: replay buffer size.
         :param batch_size: mini-batch size.
         :param gamma: discount factor.
-        :param tau: interpolation parameter for soft-update.
+        :param tau: interpolation parameter for target-network weight update.
         :param lr: learning rate.
         :param update_every: how often to update the network.
         :param seed: random seed.
@@ -56,14 +56,19 @@ class Agent:
             random.seed(self.seed)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-        self.qnetwork_local = QNetwork(
-            [self.state_size, *hidden_layer_dimensions, self.action_size],
+        self.qnetwork_local = DuelingDenseQNetwork(
+            input_dim=self.state_size,
+            output_dim=self.action_size,
+            hidden_dims=hidden_layer_dimensions,
             seed=self.seed,
         ).to(self.device)
-        self.qnetwork_target = QNetwork(
-            [self.state_size, *hidden_layer_dimensions, self.action_size],
+        self.qnetwork_target = DuelingDenseQNetwork(
+            input_dim=self.state_size,
+            output_dim=self.action_size,
+            hidden_dims=hidden_layer_dimensions,
             seed=self.seed,
         ).to(self.device)
+
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=self.lr)
         self.loss_fn = SmoothL1Loss()
         self.memory = ReplayBuffer(
@@ -227,7 +232,7 @@ class Agent:
         return scores
 
     @staticmethod
-    def load(model_checkpoint_path: str) -> "Agent":
+    def load(model_checkpoint_path: str) -> "DuelingDDQN":
         """
         Creates an agent and loads stored weights into the local model.
 
@@ -237,6 +242,6 @@ class Agent:
         state_dict = torch.load(model_checkpoint_path)
         state_size = list(state_dict.values())[0].shape[1]
         action_size = list(state_dict.values())[-1].shape[0]
-        agent = Agent(state_size=state_size, action_size=action_size)
+        agent = DuelingDDQN(state_size=state_size, action_size=action_size)
         agent.qnetwork_local.load_state_dict(state_dict)
         return agent
