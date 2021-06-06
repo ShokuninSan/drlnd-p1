@@ -29,9 +29,7 @@ class QNetwork(nn.Module):
 
         self.layers = nn.ModuleList([])
         for layer in range(len(layer_dims) - 1):
-            self.layers.append(
-                nn.Linear(layer_dims[layer], layer_dims[layer + 1])
-            )
+            self.layers.append(nn.Linear(layer_dims[layer], layer_dims[layer + 1]))
 
         self.activation_fn = activation_fn
 

@@ -146,13 +146,15 @@ class Agent:
         loss.backward()
         self.optimizer.step()
 
-        self._soft_update(self.qnetwork_local, self.qnetwork_target)
+        self._update_target_network(self.qnetwork_local, self.qnetwork_target)
 
-    def _soft_update(self, local_model, target_model) -> None:
+    def _update_target_network(self, local_model, target_model) -> None:
         """
-        Soft-updates model parameters of target network.
+        Updates model parameters of target network.
 
-        θ_target = τ*θ_local + (1 - τ)*θ_target
+        The technique implement here is also called Polyak Averaging:
+
+            θ_target = τ*θ_local + (1 - τ)*θ_target
 
         :param local_model: weights will be copied from.
         :param target_model: weights will be copied to.
@@ -160,9 +162,9 @@ class Agent:
         for target_param, local_param in zip(
             target_model.parameters(), local_model.parameters()
         ):
-            target_param.data.copy_(
-                self.tau * local_param.data + (1.0 - self.tau) * target_param.data
-            )
+            target_weight_ratio = (1.0 - self.tau) * target_param.data
+            local_weight_ratio = self.tau * local_param.data
+            target_param.data.copy_(target_weight_ratio + local_weight_ratio)
 
     def learn(
         self,
