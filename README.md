@@ -44,7 +44,7 @@ The state space has 37 dimensions and contains the agent's velocity, along with 
 
 The task is episodic, and in order to solve the environment, your agent must get an average score of +13 over 100 consecutive episodes.
 
-### Getting Started
+### Project Setup
 
 1. Download the environment from one of the links below.  You need only select the environment that matches your operating system:
     - Linux: [click here](https://s3-us-west-1.amazonaws.com/udacity-drlnd/P1/Banana/Banana_Linux.zip)
@@ -66,8 +66,16 @@ The task is episodic, and in order to solve the environment, your agent must get
 
 4. Change into the `python` folder and execute `pip install .` to install the required dependencies.
 
-### Instructions
+5. Create a custom IPython kernel by executing `$ python -m ipykernel install --user --name drlnd --display-name "drlnd"`
 
-Follow the instructions in `notebooks/Navigation.ipynb` to either
+### Getting Started
+
+Start a `jupyter notebook` from within the project folder and follow the instructions in `notebooks/Navigation.ipynb` to either
 * train your own agent or
 * load the model weights and watch the pre-trained agent
+
+__HINT__: make sure to switch from the default Python 3 kernel to "drlnd" (see section Project Setup).
+
+---
+
+Tested on macOS Big Sur (Version 11.0.1) and Ubuntu 20.04.2 LTS.
