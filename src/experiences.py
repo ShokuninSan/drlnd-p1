@@ -1,6 +1,7 @@
 import random
-from collections import deque, namedtuple
+from collections import deque
 from typing import Tuple, Optional
+from dataclasses import dataclass
 
 import torch
 import numpy as np
@@ -9,6 +10,19 @@ import numpy as np
 ExperienceBatch = Tuple[
     torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor
 ]
+
+
+@dataclass
+class Experience:
+    """
+    Experience data of an agent.
+    """
+
+    state: np.ndarray
+    action: int
+    reward: float
+    next_state: np.ndarray
+    done: bool
 
 
 class ReplayBuffer:
@@ -34,10 +48,6 @@ class ReplayBuffer:
         self.action_size = action_size
         self.memory = deque(maxlen=buffer_size)
         self.batch_size = batch_size
-        self.experience = namedtuple(
-            "Experience",
-            field_names=["state", "action", "reward", "next_state", "done"],
-        )
         if seed is not None:
             random.seed(seed)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -59,8 +69,7 @@ class ReplayBuffer:
         :param next_state: next state after taken the given action.
         :param done: indicates if episode has finished.
         """
-        e = self.experience(state, action, reward, next_state, done)
-        self.memory.append(e)
+        self.memory.append(Experience(state, action, reward, next_state, done))
 
     def sample(
         self,

@@ -101,7 +101,7 @@ class DuelingDDQN:
         # Learn every self.update_every time steps.
         self.t_step = (self.t_step + 1) % self.update_every
         if self.t_step == 0:
-            # If enough samples are available in memory, get random subset and learn
+            # If enough samples are available in memory, sample subset and learn
             if len(self.memory) > self.batch_size:
                 experiences = self.memory.sample()
                 self._fit(experiences)
@@ -120,7 +120,7 @@ class DuelingDDQN:
             with torch.no_grad():
                 action_values = self.qnetwork_local(state)
             self.qnetwork_local.train()
-            return np.argmax(action_values.cpu().data.numpy())
+            return int(np.argmax(action_values.cpu().data.numpy()))
         else:
             return random.choice(np.arange(self.action_size))
 
@@ -155,9 +155,7 @@ class DuelingDDQN:
 
     def _update_target_network(self, local_model, target_model) -> None:
         """
-        Updates model parameters of target network.
-
-        The technique implement here is also called Polyak Averaging:
+        Updates model parameters of target network using Polyak Averaging:
 
             θ_target = τ*θ_local + (1 - τ)*θ_target
 
@@ -184,7 +182,7 @@ class DuelingDDQN:
         model_checkpoint_path: str = "checkpoint.pth",
     ) -> List[float]:
         """
-        Learns the agent.
+        Trains the agent on the given environment.
 
         :param environment: environment instance to interact with.
         :param n_episodes: maximum number of training episodes.
@@ -214,22 +212,32 @@ class DuelingDDQN:
             scores_window.append(score)
             scores.append(score)
             eps = max(eps_end, eps_decay * eps)
-            print(
-                f"\rEpisode {i_episode}\tAverage Score: {np.mean(scores_window):.2f}",
-                end="",
-            )
-            if i_episode % scores_window_length == 0:
-                print(
-                    f"\rEpisode {i_episode}\tAverage Score: {np.mean(scores_window):.2f}"
-                )
+            average_score_window = float(np.mean(scores_window))
+            self._log_progress(i_episode, average_score_window, scores_window_length)
             if np.mean(scores_window) >= average_target_score:
                 print(
                     f"\nEnvironment solved in {i_episode:d} episodes!\t"
-                    f"Average Score: {np.mean(scores_window):.2f}"
+                    f"Average Score: {average_score_window:.2f}"
                 )
                 torch.save(self.qnetwork_local.state_dict(), model_checkpoint_path)
                 break
         return scores
+
+    @staticmethod
+    def _log_progress(
+        i_episode: int, average_score_window: float, scores_window_length: int
+    ) -> None:
+        """
+        Logs average score of episode to stdout.
+
+        :param i_episode: number of current episode.
+        :param average_score_window: average score of current episode.
+        :param scores_window_length: length of window for computing the average.
+        """
+        print(
+            f"\rEpisode {i_episode}\tAverage Score: {average_score_window:.2f}",
+            end="\n" if i_episode % scores_window_length == 0 else "",
+        )
 
     @staticmethod
     def load(model_checkpoint_path: str) -> "DuelingDDQN":
@@ -237,7 +245,7 @@ class DuelingDDQN:
         Creates an agent and loads stored weights into the local model.
 
         :param model_checkpoint_path: path to load model weights from.
-        :return: a new DQNAgent instance.
+        :return: a pre-trained agent instance.
         """
         state_dict = torch.load(model_checkpoint_path)
         state_size = list(state_dict.values())[0].shape[1]
