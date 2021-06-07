@@ -104,6 +104,7 @@ ENV/
 .mypy_cache/
 
 Banana.app/
+Banana_Linux/
 
 .idea/
 
